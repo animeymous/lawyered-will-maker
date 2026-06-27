@@ -4,6 +4,7 @@ import Will from '@/models/Will';
 import { verifyAuth } from '@/lib/auth';
 import { geminiModel, WILL_INTERVIEW_SYSTEM_PROMPT } from '@/lib/gemini';
 import { rateLimit } from '@/lib/rate-limit';
+import { AppError, handleError } from '@/lib/errors';
 
 export async function POST(request: Request) {
   try {
@@ -97,6 +98,9 @@ export async function POST(request: Request) {
     // Update completion status
     await updateCompletionStatus(will);
 
+    // Auto-update status based on completion
+    await autoUpdateStatus(will);
+
     await will.save();
 
     return NextResponse.json({
@@ -109,9 +113,10 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Chat error:', error);
+    const { error: errorMessage, code } = handleError(error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: errorMessage, code },
+      { status: error instanceof AppError ? error.statusCode : 500 }
     );
   }
 }
@@ -157,7 +162,7 @@ async function extractAndUpdateWillData(will: any) {
           "isMinor": "boolean",
           "shares": [
             {
-              "assetId": "null (for now)",
+              "assetId": null,
               "percentage": "number (0-100)"
             }
           ]
@@ -238,7 +243,6 @@ async function extractAndUpdateWillData(will: any) {
     
   } catch (error) {
     console.error('Error extracting data:', error);
-    // Don't fail the whole request if extraction fails
     return null;
   }
 }
@@ -263,5 +267,33 @@ async function updateCompletionStatus(will: any) {
     will.status = 'ready_for_review';
   }
   
+  await will.save();
+}
+
+// Function to auto-update status based on completion
+async function autoUpdateStatus(will: any) {
+  const completion = will.completion;
+  const allComplete = completion && 
+    completion.testatorComplete &&
+    completion.assetsComplete &&
+    completion.beneficiariesComplete &&
+    completion.executorComplete &&
+    completion.guardianComplete &&
+    completion.witnessesComplete &&
+    completion.signatureComplete;
+
+  if (allComplete && will.status === 'draft') {
+
+    const hasMinors = will.beneficiaries?.some((b: any) => b.isMinor === true);
+    const hasGuardian = !!will.guardian?.name;
+    const hasExecutor = !!will.executor?.name;
+    const hasWitnesses = will.witnesses && will.witnesses.length >= 2;
+
+    if (hasExecutor && hasWitnesses && (!hasMinors || hasGuardian)) {
+      will.status = 'ready_for_review';
+      console.log('✅ Will auto-updated to ready_for_review');
+    }
+  }
+
   await will.save();
 }

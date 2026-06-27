@@ -2,10 +2,37 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Send,
+  ArrowLeft,
+  Download,
+  User,
+  Bot,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  FileText,
+  Home,
+  Wallet,
+  Users,
+  UserCheck,
+  Shield,
+  PenTool,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: Date;
 }
 
 interface Completion {
@@ -28,7 +55,9 @@ export default function WillPage() {
   const [status, setStatus] = useState('');
   const [willData, setWillData] = useState<any>(null);
   const [loadingPage, setLoadingPage] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -36,12 +65,19 @@ export default function WillPage() {
     }
   }, [id]);
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const fetchWill = async () => {
     try {
       const res = await fetch(`/api/will/${id}`);
       if (!res.ok) {
-        console.error('Failed to fetch will');
-        setLoadingPage(false);
+        router.push('/dashboard');
         return;
       }
       const data = await res.json();
@@ -59,10 +95,11 @@ export default function WillPage() {
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
-    const userMessage = input;
+    const userMessage = input.trim();
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
+    setIsTyping(true);
 
     try {
       const res = await fetch('/api/chat', {
@@ -76,28 +113,58 @@ export default function WillPage() {
         setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
         setCompletion(data.completion);
         setStatus(data.status);
+      } else {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: 'Sorry, I encountered an error. Please try again.',
+          },
+        ]);
       }
     } catch (error) {
       console.error('Error:', error);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Network error. Please check your connection.',
+        },
+      ]);
     } finally {
       setLoading(false);
+      setIsTyping(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
   const downloadPDF = async () => {
-    const res = await fetch('/api/will/generate-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ willId: id }),
-    });
+    try {
+      const res = await fetch('/api/will/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ willId: id }),
+      });
 
-    if (res.ok) {
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'will.pdf';
-      a.click();
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `will-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Download error:', error);
     }
   };
 
@@ -108,121 +175,258 @@ export default function WillPage() {
     return Math.round((completed / values.length) * 100);
   };
 
+  const getCompletionItems = () => {
+    if (!completion) return [];
+    const labels: Record<keyof Completion, string> = {
+      testatorComplete: 'Your Details',
+      assetsComplete: 'Assets',
+      beneficiariesComplete: 'Beneficiaries',
+      executorComplete: 'Executor',
+      guardianComplete: 'Guardian',
+      witnessesComplete: 'Witnesses',
+      signatureComplete: 'Signature',
+    };
+    return Object.entries(completion).map(([key, value]) => ({
+      label: labels[key as keyof Completion] || key,
+      complete: value,
+      key,
+    }));
+  };
+
   if (loadingPage) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading your will...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto" />
+          <p className="mt-4 text-muted-foreground">Loading your will...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Chat Section */}
-      <div className="flex-1 flex flex-col max-w-3xl mx-auto p-4">
-        <div className="bg-white rounded-lg shadow-lg flex-1 flex flex-col">
-          <div className="p-4 border-b bg-blue-50 rounded-t-lg">
-            <h2 className="text-lg font-semibold">AI Will Assistant</h2>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>Progress: {getCompletionPercentage()}%</span>
-              <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                {status}
-              </span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+      {/* Header */}
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard')}
+              className="text-muted-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <FileText className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {willData?.testator?.fullName || 'New Will'}
+                </p>
+                <Badge className={status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}>
+                  {status?.replace('_', ' ') || 'Draft'}
+                </Badge>
+              </div>
             </div>
           </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[400px]">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] p-3 rounded-lg ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-800'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-200 p-3 rounded-lg">
-                  <span className="animate-pulse">AI is thinking...</span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="p-4 border-t">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Type your answer..."
-                className="flex-1 p-2 border rounded focus:outline-none focus:border-blue-500"
-                disabled={loading}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={loading}
-                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                Send
-              </button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={downloadPDF}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              PDF
+            </Button>
           </div>
         </div>
+      </header>
 
-        <button
-          onClick={downloadPDF}
-          className="mt-4 bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-        >
-          Download PDF
-        </button>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chat Section */}
+          <div className="lg:col-span-2">
+            <Card className="h-[calc(100vh-180px)] flex flex-col shadow-lg border-0">
+              <CardHeader className="pb-3 border-b">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                    AI Assistant
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Progress value={getCompletionPercentage()} className="w-24" />
+                    <span className="text-xs font-medium">
+                      {getCompletionPercentage()}%
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
 
-      {/* Preview Section */}
-      <div className="w-96 bg-white p-4 border-l overflow-y-auto hidden lg:block">
-        <h3 className="font-bold mb-4">Will Preview</h3>
-        {willData && (
-          <div className="space-y-3 text-sm">
-            <div className="border-b pb-2">
-              <p className="font-semibold">Testator</p>
-              <p>{willData.testator?.fullName || 'Not provided'}</p>
-              <p className="text-gray-600">{willData.testator?.address || ''}</p>
-            </div>
+              <ScrollArea className="flex-1 px-4 py-4">
+                <div className="space-y-4">
+                  {messages.map((msg, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] flex gap-3 ${
+                          msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                        }`}
+                      >
+                        {msg.role === 'assistant' && (
+                          <Avatar className="w-8 h-8 mt-1">
+                            <AvatarFallback className="bg-blue-100 text-blue-700">
+                              <Bot className="w-4 h-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        {msg.role === 'user' && (
+                          <Avatar className="w-8 h-8 mt-1">
+                            <AvatarFallback className="bg-indigo-100 text-indigo-700">
+                              <User className="w-4 h-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div
+                          className={`px-4 py-3 rounded-2xl ${
+                            msg.role === 'user'
+                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
+                              : 'bg-white border shadow-sm'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                            {msg.content}
+                          </p>
+                          {msg.timestamp && (
+                            <p className="text-xs opacity-60 mt-1">
+                              {format(new Date(msg.timestamp), 'h:mm a')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
 
-            <div className="border-b pb-2">
-              <p className="font-semibold">Assets ({willData.assets?.length || 0})</p>
-              {willData.assets?.map((a: any, i: number) => (
-                <p key={i} className="text-gray-600">• {a.name}</p>
-              ))}
-            </div>
+                  {isTyping && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex justify-start"
+                    >
+                      <div className="bg-white border shadow-sm px-4 py-3 rounded-2xl">
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" />
+                          <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce delay-100" />
+                          <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce delay-200" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
 
-            <div className="border-b pb-2">
-              <p className="font-semibold">Beneficiaries ({willData.beneficiaries?.length || 0})</p>
-              {willData.beneficiaries?.map((b: any, i: number) => (
-                <p key={i} className="text-gray-600">• {b.name} ({b.relationship})</p>
-              ))}
-            </div>
-
-            <div>
-              <p className="font-semibold">Completion</p>
-              {completion && Object.entries(completion).map(([key, val]) => (
-                <p key={key} className="text-gray-600">
-                  {key}: {val ? '✅' : '❌'}
-                </p>
-              ))}
-            </div>
+              <CardContent className="pt-3 border-t">
+                <div className="flex gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="flex-1 px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    disabled={loading}
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    disabled={loading || !input.trim()}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
+
+          {/* Preview/Sidebar */}
+          <div className="lg:col-span-1 space-y-4">
+            <Card className="shadow-lg border-0">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {getCompletionItems().map((item) => (
+                  <div key={item.key} className="flex items-center justify-between">
+                    <span className="text-sm">{item.label}</span>
+                    {item.complete ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                        Done
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg border-0">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {willData?.testator?.fullName && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Testator</span>
+                    <span className="font-medium">{willData.testator.fullName}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Assets</span>
+                  <span className="font-medium">{willData?.assets?.length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Beneficiaries</span>
+                  <span className="font-medium">{willData?.beneficiaries?.length || 0}</span>
+                </div>
+                {willData?.executor?.name && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Executor</span>
+                    <span className="font-medium">{willData.executor.name}</span>
+                  </div>
+                )}
+                <Separator />
+                <Button
+                  onClick={downloadPDF}
+                  variant="outline"
+                  className="w-full gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

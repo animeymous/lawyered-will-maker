@@ -11,3 +11,4 @@ Users report that the AI "forgets" answers given 10 minutes ago, and response ti
    ```bash
    # Check API logs for response times
    grep "POST /api/chat" logs/next.log | awk '{print $NF}'
+
