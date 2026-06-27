@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Will Maker - AI-Powered Legacy Planning
 
-## Getting Started
+A full-stack application that helps users create legally valid wills through an AI-powered conversational interface. Built with Next.js, MongoDB, and Google Gemini AI.
 
-First, run the development server:
+## 🚀 Live Demo
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+**URL:** https://lawyered-will-maker.vercel.app/
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Demo Credentials:**
+- Email: demo@example.com
+- Password: Demo123!
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📋 Table of Contents
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Environment Variables](#environment-variables)
+- [Database Setup](#database-setup)
+- [Running the Application](#running-the-application)
+- [API Endpoints](#api-endpoints)
+- [AI Interview Flow](#ai-interview-flow)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Learn More
+## ✨ Features
 
-To learn more about Next.js, take a look at the following resources:
+### Core Features
+- **User Authentication** - Signup and login with JWT-based authentication
+- **AI-Powered Interview** - Conversational AI that guides users through will creation
+- **Structured Data Extraction** - Automatically extracts will data from natural language responses
+- **Real-time Progress Tracking** - Visual progress indicator showing completion status
+- **PDF Generation** - Download professionally formatted will documents
+- **Validation Rules** - Ensures legal compliance with automatic validation
+- **Dashboard** - Manage multiple wills, track status, and continue where you left off
+- **Responsive Design** - Works on desktop, tablet, and mobile devices
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Technical Features
+- 🔒 Secure authentication with httpOnly cookies
+- 🗄️ MongoDB with flexible schema for half-completed wills
+- 🤖 Google Gemini AI integration with cost optimization
+- ⚡ Rate limiting to prevent abuse
+- 📊 Comprehensive error handling and logging
+- 🎨 Modern UI with Shadcn components and Tailwind CSS
+- 📱 Fully responsive design
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ Tech Stack
 
-## Deploy on Vercel
+### Frontend
+- **Next.js 16** - React framework with App Router
+- **React** - UI library
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first CSS framework
+- **Shadcn UI** - Component library
+- **Framer Motion** - Animations
+- **Lucide React** - Icons
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Backend
+- **Next.js API Routes** - Serverless API endpoints
+- **MongoDB** - NoSQL database
+- **Mongoose** - MongoDB ODM
+- **JWT** - Authentication
+- **bcryptjs** - Password hashing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### AI Integration
+- **Google Gemini API** - AI model for conversation and data extraction
+- **Model:** gemini-1.5-flash-lite (cost-optimized)
+
+### Deployment
+- **Vercel** - Hosting and deployment
+- **MongoDB Atlas** - Cloud database
+
+## 🔧 Installation
+
+### Prerequisites
+- Node.js 18+ 
+- MongoDB Atlas account (or local MongoDB)
+- Google Gemini API key
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/animeymous/lawyered-will-maker.git
+   cd lawyered-will-maker
+2. npm install
+3. cp .env.example .env.local
+4. npm run seed
+5. npm run dev
+6. Create Environment Variables
+# MongoDB Connection
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database
+
+# JWT Secret (generate a secure random string)
+JWT_SECRET=your_jwt_secret_key_at_least_32_characters
+
+# Google Gemini API Key
+GOOGLE_GEMINI_API_KEY=your_gemini_api_key
+
+# Application URL (for development)
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+7. Getting API Keys
+- MongoDB Atlas: Sign up at MongoDB Atlas
+
+- Google Gemini: Get API key from Google AI Studio
+
+- JWT Secret: Generate using openssl rand -base64 32 or a similar tool
